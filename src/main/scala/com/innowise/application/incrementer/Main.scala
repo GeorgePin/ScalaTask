@@ -1,7 +1,7 @@
-package com.innowise.application.incrementor
+package com.innowise.application.incrementer
 
 import akka.actor.{Actor, ActorSystem, Props}
-import com.innowise.application.incrementor.Main.Incrementer.ValueHolder
+import com.innowise.application.incrementer.Main.Incrementer.ValueHolder
 
 import scala.util.Random
 
