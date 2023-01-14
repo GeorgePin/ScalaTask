@@ -47,7 +47,7 @@ object Main extends App {
 
 
   class CalculatorHelper() extends Actor {
-    @volatile var actionCounter: Int = 0
+    var actionCounter: Int = 0
 
     def receive: Receive = {
       case "start" => {
