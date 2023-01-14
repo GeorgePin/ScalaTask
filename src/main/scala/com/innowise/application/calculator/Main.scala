@@ -1,11 +1,11 @@
 package com.innowise.application.calculator
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import com.innowise.application.calculator.Calculator.Calculator.{Minus, Plus, Print}
+import com.innowise.application.calculator.Main.Calculator.{Minus, Plus, Print}
 
 import scala.util.Random
 
-object Calculator extends App {
+object Main extends App {
   private val system = ActorSystem("calculatorSystem")
   private val calculatorHelper = system.actorOf(Props[CalculatorHelper], name = "calculatorHelper")
   private val calculator = system.actorOf(Calculator.props(), name = "calculator")
