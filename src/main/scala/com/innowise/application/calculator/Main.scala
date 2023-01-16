@@ -1,6 +1,6 @@
 package com.innowise.application.calculator
 
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+import akka.actor.{Actor, ActorSystem, Props}
 import com.innowise.application.calculator.Main.Calculator.{Minus, Plus, Print}
 
 import scala.util.Random
@@ -8,7 +8,7 @@ import scala.util.Random
 object Main extends App {
   private val system = ActorSystem("calculatorSystem")
   private val calculatorHelper = system.actorOf(Props[CalculatorHelper], name = "calculatorHelper")
-  private val calculator = system.actorOf(Calculator.props(), name = "calculator")
+  private val calculator = system.actorOf(Props[Calculator], name = "calculator")
   calculatorHelper ! "start"
 
   object Calculator {
@@ -16,43 +16,49 @@ object Main extends App {
 
     case class Minus(num: Int)
 
-    case class Print()
+    case object Print
 
-    def props(): Props = Props[Calculator]
   }
 
-  class Calculator() extends Actor {
-    private var value: Int = 0;
+  class Calculator extends Actor {
+    private var value: Int = 0
+
+    override def postStop: Unit = {
+      println("Calculator is going to die soon")
+    }
 
     def receive: Receive = {
       case Plus(num: Int) => {
         value += num
-        sender() ! "start"
+        sender ! "start"
       }
       case Minus(num: Int)
       => {
         value -= num
-        sender() ! "start"
+        sender ! "start"
       }
       case Print => {
         println(value)
-        sender() ! "start"
+        sender ! "start"
       }
       case _ => {
-        print("Default case.")
-        context.stop(self)
+        context.system.terminate
       }
     }
   }
 
 
-  class CalculatorHelper() extends Actor {
-    var actionCounter: Int = 0
+  class CalculatorHelper extends Actor {
+    private var actionCounter: Int = 0
+
+    override def postStop: Unit = {
+      println("CalculatorHelper is going to die soon")
+    }
 
     def receive: Receive = {
       case "start" => {
         if (actionCounter >= 100) {
-          self ! "stop"
+          context.system.terminate
         } else {
           val whichAction = Random.nextInt(3) + 1
           val value = Random.nextInt(100) + 1
@@ -70,20 +76,14 @@ object Main extends App {
               calculator ! Print
             }
             case _ => {
-              print("Default case.")
-              context.stop(self)
+              context.system.terminate
             }
           }
         }
       }
-      case "stop" => {
-        println("exit.")
-      }
       case _ => {
-        print("Default case.")
-        context.stop(self)
+        context.system.terminate
       }
-
     }
   }
 }
