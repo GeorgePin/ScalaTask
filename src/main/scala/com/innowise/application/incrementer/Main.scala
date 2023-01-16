@@ -1,7 +1,7 @@
 package com.innowise.application.incrementer
 
-import akka.actor.{Actor, ActorSystem, Props}
-import com.innowise.application.incrementer.Main.Incrementer.ValueHolder
+import akka.actor.{Actor, ActorSystem, PoisonPill, Props}
+import com.innowise.application.incrementer.Main.Incrementer.{Decrement, Increment, Print}
 
 import scala.util.Random
 
@@ -9,79 +9,79 @@ import scala.util.Random
 object Main extends App {
   private val system = ActorSystem("incrementSystem")
   private val incrementerHelper = system.actorOf(Props[IncrementerHelper], name = "incrementerHelper")
-  private val incrementer = system.actorOf(Incrementer.props(), name = "incrementer")
+  private val incrementer = system.actorOf(Props[Incrementer], name = "incrementer")
   incrementerHelper ! "newStart"
 
 
   object Incrementer {
+    case class Increment(value: Int)
 
-    case class ValueHolder(value: Int, action: String)
+    case class Decrement(value: Int)
+
+    case class Print(value: Int)
 
 
-    def props(): Props = Props[Incrementer]
   }
 
-  class Incrementer() extends Actor {
+  class Incrementer extends Actor {
+    override def postStop: Unit = {
+      println("Incrementer is going to die soon")
+    }
+
 
     def receive: Receive = {
-      case ValueHolder(value: Int, "increment") => {
-        sender() ! ValueHolder(value + 1, "default")
+      case Increment(value: Int) => {
+        sender ! value + 1
       }
-      case ValueHolder(value: Int, "decrement") => {
-        sender() ! ValueHolder(value - 1, "default")
+      case Decrement(value: Int) => {
+        sender ! value - 1
       }
-      case ValueHolder(value: Int, "print") => {
+      case Print(value: Int) => {
         println(value)
-        sender() ! ValueHolder(value, "default")
+        sender ! value
       }
       case _ => {
-        print("Default case.")
-        context.stop(self)
+        //                incrementerHelper ! PoisonPill
+        //                self ! PoisonPill
+        context.system.terminate()
       }
     }
   }
 
 
-  class IncrementerHelper() extends Actor {
-    var actionCounter: Int = 0
+  class IncrementerHelper extends Actor {
+    override def postStop: Unit = {
+      println("IncrementerHelper is going to die soon")
+    }
 
     def receive: Receive = {
-      case ValueHolder(value: Int, _) => {
-        if (actionCounter >= 100) {
-          self ! "stop"
-        } else {
-          val whichAction = Random.nextInt(3) + 1
-          whichAction match {
-            case 1 => {
-              actionCounter += 1
-              incrementer ! ValueHolder(value, "increment")
-            }
-            case 2 => {
-              actionCounter += 1
-              incrementer ! ValueHolder(value, "decrement")
-            }
-            case 3 => {
-              actionCounter += 1
-              incrementer ! ValueHolder(value, "print")
-            }
-            case _ => {
-              print("Default case.")
-              context.stop(self)
-            }
+      case value: Int => {
+        val whichAction = if (-1000 > value || value > 1000) 4 else Random.nextInt(3) + 1
+        whichAction match {
+          case 1 => {
+            incrementer ! Increment(value)
+          }
+          case 2 => {
+            incrementer ! Decrement(value)
+          }
+          case 3 => {
+            incrementer ! Print(value)
+          }
+          case 4 => {
+            //            incrementer ! PoisonPill
+            //            self ! PoisonPill
+            context.system.terminate()
           }
         }
       }
       case "newStart" => {
-        incrementer ! ValueHolder(0, "increment")
-      }
-      case "stop" => {
-        println("exit.")
+        incrementer ! Increment(0)
       }
       case _ => {
-        print("Default case.")
-        context.stop(self)
+        //        incrementer ! PoisonPill
+        //        self ! PoisonPill
+        context.system.terminate()
       }
-
     }
   }
 }
