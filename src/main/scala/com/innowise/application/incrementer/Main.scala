@@ -1,7 +1,7 @@
 package com.innowise.application.incrementer
 
 import akka.actor.{Actor, ActorSystem, PoisonPill, Props}
-import com.innowise.application.incrementer.Main.Incrementer.{Decrement, Increment, Print}
+import com.innowise.application.incrementer.Main.Incrementer.{Decrement, Exit, Increment, Print}
 
 import scala.util.Random
 
@@ -14,11 +14,13 @@ object Main extends App {
 
 
   object Incrementer {
-    case class Increment(value: Int)
+    case object Increment
 
-    case class Decrement(value: Int)
+    case object Decrement
 
-    case class Print(value: Int)
+    case object Print
+
+    case object Exit
 
 
   }
@@ -28,15 +30,21 @@ object Main extends App {
       println("Incrementer is going to die soon")
     }
 
+    def receive: Receive = handleReceive(0)
 
-    def receive: Receive = {
-      case Increment(value: Int) => {
-        sender ! value + 1
+
+    def handleReceive(value: Int): Receive = {
+      case Increment => {
+        val newValue = value + 1
+        context.become(handleReceive(newValue))
+        sender ! newValue
       }
-      case Decrement(value: Int) => {
-        sender ! value - 1
+      case Decrement => {
+        val newValue = value - 1
+        context.become(handleReceive(value - 1))
+        sender ! newValue
       }
-      case Print(value: Int) => {
+      case Print => {
         println(value)
         sender ! value
       }
@@ -48,26 +56,33 @@ object Main extends App {
     }
   }
 
+  object IncrementerHelper {
+
+    val actionsList = List(Increment, Decrement, Print, Exit)
+  }
 
   class IncrementerHelper extends Actor {
+
+    import IncrementerHelper._
+
     override def postStop: Unit = {
       println("IncrementerHelper is going to die soon")
     }
 
     def receive: Receive = {
       case value: Int => {
-        val whichAction = if (-1000 > value || value > 1000) 4 else Random.nextInt(3) + 1
+        val whichAction = if (-1000 >= value || value >= 1000) actionsList(3) else actionsList(Random.nextInt(2) + 1)
         whichAction match {
-          case 1 => {
-            incrementer ! Increment(value)
+          case Increment => {
+            incrementer ! Increment
           }
-          case 2 => {
-            incrementer ! Decrement(value)
+          case Decrement => {
+            incrementer ! Decrement
           }
-          case 3 => {
-            incrementer ! Print(value)
+          case Print => {
+            incrementer ! Print
           }
-          case 4 => {
+          case Exit => {
             //            incrementer ! PoisonPill
             //            self ! PoisonPill
             context.system.terminate()
@@ -75,7 +90,7 @@ object Main extends App {
         }
       }
       case "newStart" => {
-        incrementer ! Increment(0)
+        incrementer ! Increment
       }
       case _ => {
         //        incrementer ! PoisonPill
